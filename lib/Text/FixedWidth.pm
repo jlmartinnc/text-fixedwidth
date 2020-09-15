@@ -12,7 +12,7 @@ Text::FixedWidth - Easy OO manipulation of fixed width text files
 
 =cut
 
-our $VERSION = '0.13';
+our $VERSION = '0.1351';
 
 =head1 SYNOPSIS
 
@@ -94,9 +94,11 @@ sub set_attributes {
       my ($length) = ($sprintf =~ /(\d+)/g);
       $self->{_attributes}{$att}{length}  = $length;
       push @{$self->{_attribute_order}}, $att;
+      my $max_len = $self->{_max_len} || 0;
+      $self->{_max_len} = $max_len + $length;
    }
 
-   return 1;
+   return $self;
 }
 
 
@@ -148,14 +150,47 @@ sub set_attribute {
    unless ($att)     { 
       die "set_attribute() requires a 'name' argument";
    }
+   if (exists $self->{_attributes}{$att}) {
+      my ($OK, $tval, $tval2);
+      my $anode = $self->{_attributes}{$att};
+      if ($anode && ref($anode) eq "HASH") {
+         $OK = 1;
+         if (!defined($value) && defined($tval = $anode->{value})) {
+            $value = $tval;
+         }
+         if (!defined($writer) && defined($tval = $anode->{writer})) {
+            $writer = $tval;
+         }
+         if ($sprintf) {
+            ($length) = ($sprintf =~ /(\d+)/g);
+            if (defined($tval = $anode->{length}) && $length != $tval) {
+               $OK = 0;
+            }
+         }
+         elsif ($reader && defined($length)) {
+            if (defined($tval = $anode->{length}) && $length != $tval) {
+               $OK = 0;
+            }
+         }
+         elsif (defined($tval = $anode->{sprintf})) {
+            $sprintf = $tval;
+            ($length) = ($sprintf =~ /(\d+)/g);
+            $reader = undef;
+         }
+         elsif (defined($tval = $anode->{reader}) && defined($tval2 = $anode->{length})) {
+            $reader = $tval;
+            $length = $tval2;
+         }
+      }
+      unless ($OK) {
+         die "You already set attribute name '$att'! You can't set it again! All your attribute names must be unique";
+      }
+   }
    unless ($sprintf || $reader) { 
       die "set_attribute() requires a 'format' or a 'reader' argument"; 
    }
    if ($reader && not defined $length) { 
       die "set_attribute() requires a 'length' when a 'reader' argument is provided";
-   }
-   if (exists $self->{_attributes}{$att}) {
-      die "You already set attribute name '$att'! You can't set it again! All your attribute names must be unique";
    }
 
    if ($value && $value eq "undef") { $value = undef; }
@@ -163,14 +198,23 @@ sub set_attribute {
    if ($sprintf) {
       $self->{_attributes}{$att}{sprintf} = $sprintf;
       ($length) = ($sprintf =~ /(\d+)/g);
+      if (defined($self->{_attributes}{$att}{reader})) {
+         $self->{_attributes}{$att}{reader} = undef;
+      }
    } else {
       $self->{_attributes}{$att}{reader} = $reader;
+      if (defined($self->{_attributes}{$att}{sprintf})) {
+         $self->{_attributes}{$att}{sprintf} = undef;
+      }
    }
+   my $prev_length = $self->{_attributes}{$att}{length} || 0;
    $self->{_attributes}{$att}{length} = $length;
+   $self->{_max_len} ||= 0;
+   $self->{_max_len} += ($length - $prev_length);
    $self->{_attributes}{$att}{writer} = $writer;
    push @{$self->{_attribute_order}}, $att;
 
-   return 1;
+   return $self;
 }
 
 
@@ -187,6 +231,8 @@ sub parse {
 
    die ref($self).":Please provide a string argument" if (!$args{string});
    my $string = $args{string};
+   my $max_len = $self->max_len;
+   $string = sprintf('%-*s', $max_len, $string);
 
    $self = $self->clone if $args{clone};
 
@@ -197,7 +243,7 @@ sub parse {
       $offset += $length;
    }
 
-   return $args{clone}? $self : 1;
+   return $self;
 }
 
 
@@ -302,7 +348,7 @@ sub auto_truncate {
       }
       $self->{_auto_truncate}->{$attr} = 1;
    }
-   return 1;
+   return $self;
 }
 
 =head2 clone
@@ -401,6 +447,83 @@ sub _set {
   } else {
     return 0;
   }
+}
+
+
+=head2 getf
+
+Call getf('foo') as alias for getter getf_foo() to return the fixed-width formatted value.
+
+   $fw->getf('fname');   # '       Jay' (the format you specified)
+
+=cut
+
+sub getf {
+   my ($self, $att) = @_;
+
+   return $self->_getf($att);
+}
+
+
+=head2 get
+
+Call get('foo') as alias for getter get_foo() to return current value in no particular format.
+
+   $fw->get('fname');    # Jay          (no particular format)
+
+=cut
+
+sub get {
+   my ($self, $att) = @_;
+
+   return $self->_get($att);
+}
+
+
+=head2 set
+
+Call set('foo', $value) as alias for setter set_foo($value) to assign value.
+
+   $fw->set('fname', 'Jay');
+
+=cut
+
+sub set {
+   my ($self, $att, $val) = @_;
+
+   return $self->_set($att, $val);
+}
+
+
+=head2 max_len
+
+Return current maximum length of fields in record.
+
+  my $max_len = $fw->max_len;
+
+=cut
+
+sub max_len {
+   my ($self) = @_;
+   my $rval;
+   $rval = $self->{_max_len} || 0;
+   return $rval;
+}
+
+
+=head2 attributes
+
+Return current list of field attributes as array.
+
+  my @cur_attributes = $fw->attributes;
+
+=cut
+
+sub attributes {
+   my ($self) = @_;
+   my @rvals;
+   @rvals = (@{$self->{_attribute_order}});
+   return @rvals;
 }
 
 
