@@ -146,13 +146,14 @@ sub set_attribute {
    my $reader =  $args{reader};
    my $writer =  $args{writer};
    my $length =  $args{length};
+   my $anode;
 
    unless ($att)     { 
       die "set_attribute() requires a 'name' argument";
    }
    if (exists $self->{_attributes}{$att}) {
       my ($OK, $tval, $tval2);
-      my $anode = $self->{_attributes}{$att};
+      $anode = $self->{_attributes}{$att};
       if ($anode && ref($anode) eq "HASH") {
          $OK = 1;
          if (!defined($value) && defined($tval = $anode->{value})) {
@@ -212,7 +213,7 @@ sub set_attribute {
    $self->{_max_len} ||= 0;
    $self->{_max_len} += ($length - $prev_length);
    $self->{_attributes}{$att}{writer} = $writer;
-   push @{$self->{_attribute_order}}, $att;
+   push @{$self->{_attribute_order}}, $att unless $anode;
 
    return $self;
 }
