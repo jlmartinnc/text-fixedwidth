@@ -427,10 +427,11 @@ sub _get {
 sub _set { 
   my ($self, $att, $val) = @_;
 
+  croak "Can't set_$att(). No such attribute: $att" unless (defined $self->{_attributes}{$att});
+
   my $length = $self->{_attributes}{$att}{length};
   my $writer = $self->{_attributes}{$att}{writer};
 
-  croak "Can't set_$att(). No such attribute: $att" unless (defined $self->{_attributes}{$att});
   if (defined $self->{_attributes}{$att}) {
     if ($writer) {
       $val = $writer->($self, $val);
