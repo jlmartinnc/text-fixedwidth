@@ -59,6 +59,7 @@ sub new {
    my $caller_is_obj = ref($caller);
    my $class = $caller_is_obj || $caller;
    my $self = bless {}, ref($class) || $class;
+   if ($args{empty_num}) { $self->{empty_num} = 1; }
    return $self;
 }
 
@@ -314,8 +315,14 @@ sub _getf {
       )
    ) {
       $value = '' if (not defined $value);
-      warn "string() warning: " . ref($self) . " attribute '$att' contains '$value' which is not numeric, yet the sprintf '$sprintf' appears to be numeric. Using 0";
-      $value = 0;
+      if ($self->{empty_num} && $value eq '') {
+          $rval = " " x $length;
+          return $rval;
+      }
+      else {
+          warn "string() warning: " . ref($self) . " attribute '$att' contains '$value' which is not numeric, yet the sprintf '$sprintf' appears to be numeric. Using 0";
+          $value = 0;
+      }
    }
    $rval = sprintf($sprintf, (defined $value ? $value : ""));
 
