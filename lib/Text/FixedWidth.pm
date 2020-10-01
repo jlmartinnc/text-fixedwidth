@@ -315,7 +315,7 @@ sub _getf {
       )
    ) {
       $value = '' if (not defined $value);
-      if ($self->{empty_num} && $value eq '') {
+      if ($self->{empty_num} && ($value eq '' || $value =~ /^\s*$/)) {
           $rval = " " x $length;
           return $rval;
       }
